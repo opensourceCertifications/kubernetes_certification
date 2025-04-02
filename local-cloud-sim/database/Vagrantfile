@@ -1,92 +1,23 @@
-Vagrant.configure("2") do |config|
-  # Common VM settings for all machines
-  config.vm.provider "virtualbox" do |vb|
-    vb.memory = "4096"
-    vb.cpus = 2
-  end
+VAGRANTFILE_API_VERSION = "2"
 
-  # MongoDB VM
-  config.vm.define "mongodb" do |mongodb|
-    mongodb.vm.box = "ubuntu/focal64"
-    mongodb.vm.hostname = "mongodb"
-    mongodb.vm.network "private_network", ip: "192.168.58.10"
-    
-    # Provision MongoDB
-    mongodb.vm.provision "shell", inline: <<-SHELL
-      apt-get update
-      apt-get install -y gnupg curl
-      curl -fsSL https://pgp.mongodb.com/server-6.0.asc | gpg -o /usr/share/keyrings/mongodb-server-6.0.gpg --dearmor
-      echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-6.0.gpg ] https://repo.mongodb.org/apt/ubuntu focal/mongodb-org/6.0 multiverse" | tee /etc/apt/sources.list.d/mongodb-org-6.0.list
-      apt-get update
-      apt-get install -y mongodb-org
-      
-      # Enable and start MongoDB
-      systemctl enable mongod
-      systemctl start mongod
-      
-      # Configure MongoDB for networking access
-      sed -i 's/bindIp: 127.0.0.1/bindIp: 0.0.0.0/g' /etc/mongod.conf
-      systemctl restart mongod
+Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
+  ["database1", "database2"].each_with_index do |name, i|
+    config.vm.define name do |node|
+      node.vm.box = "almalinux/9"
+      node.vm.hostname = name
+      node.vm.network "private_network", ip: "192.168.58.#{10 + i}"
 
-      # demo database and insert sample data
-      mongo --eval '
-      use demoDatabase;
-      db.createCollection("users");
-      db.users.insertMany([
-        { username: "admin", role: "admin", email: "admin@foo.com" },
-        { username: "tester", role: "tester", email: "tester@foo.com" },
-        { username: "dev", role: "developer", email: "dev@foo.com" }
-      ]);
-    '
+      node.vm.network "forwarded_port", guest: 27017, host: 27017 + i
+      node.vm.network "forwarded_port", guest: 3306, host: 3306 + i
 
-    mongodb.vm.network "forwarded_port", guest: 27017, host: 27017
+      node.vm.provider "virtualbox" do |vb|
+        vb.memory = 1024
+        vb.cpus = 2
+      end
 
-    SHELL
-    
-    # Add 20GB disk
-    mongodb.vm.disk :disk, size: "20GB", name: "mongodb_data"
-  end
-
-  # MySQL VM
-  config.vm.define "mysql" do |mysql|
-    mysql.vm.box = "ubuntu/focal64"
-    mysql.vm.hostname = "mysql"
-    mysql.vm.network "private_network", ip: "192.168.58.20"
-    
-    # Provision MySQL
-    mysql.vm.provision "shell", inline: <<-SHELL
-      apt-get update
-      apt-get install -y mysql-server
-      
-      # Secure MySQL installation
-      mysql -e "ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY 'rootpassword';"
-      mysql -e "DELETE FROM mysql.user WHERE User='';"
-      mysql -e "DELETE FROM mysql.user WHERE User='root' AND Host NOT IN ('localhost', '127.0.0.1', '::1');"
-      mysql -e "DROP DATABASE IF EXISTS test;"
-      mysql -e "DELETE FROM mysql.db WHERE Db='test' OR Db='test\\_%';"
-      mysql -e "FLUSH PRIVILEGES;"
-      
-      # Configure MySQL for external access
-      sed -i 's/bind-address\s*=\s*127.0.0.1/bind-address = 0.0.0.0/' /etc/mysql/mysql.conf.d/mysqld.cnf
-      systemctl restart mysql
-      
-      # Create a database and user for the application with a demo table and sample data
-      mysql -u root -prootpassword -e "CREATE DATABASE IF NOT EXISTS cloud_sim;"
-      mysql -u root -prootpassword -e "
-      USE cloud_sim;
-      CREATE TABLE IF NOT EXISTS demo_table (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        name VARCHAR(255) NOT NULL,
-        email VARCHAR(255) NOT NULL,
-        role VARCHAR(255) NOT NULL
-      );
-      INSERT INTO demo_table (name, email, role) VALUES ('Admin', 'admin@foo.com', 'admin');
-      INSERT INTO demo_table (name, email, role) VALUES ('Tester', 'tester@foo.com', 'tester');
-      INSERT INTO demo_table (name, email, role) VALUES ('Developer', 'dev@foo.com', 'developer');
-    "
-    SHELL
-    
-    # Add 20GB disk
-    mysql.vm.disk :disk, size: "20GB", name: "mysql_data"
+      node.vm.synced_folder ".", "/vagrant", disabled: false
+      node.vm.provision "shell", path: "startup.sh"
+    end
   end
 end
+

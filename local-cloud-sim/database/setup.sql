@@ -1,4 +1,4 @@
-ALTER USER 'root'@'localhost' IDENTIFIED BY 'supersecurepassword';
+FLUSH PRIVILEGES;
 
 CREATE DATABASE IF NOT EXISTS dummydb;
 CREATE USER IF NOT EXISTS 'dummyuser'@'%' IDENTIFIED BY 'supersecurepassword';
