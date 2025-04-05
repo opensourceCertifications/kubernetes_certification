@@ -1,7 +1,7 @@
 VAGRANTFILE_API_VERSION = "2"
 
 Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
-  ["database1", "database2"].each_with_index do |name, i|
+  ["database1"].each_with_index do |name, i|
     config.vm.define name do |node|
       node.vm.box = "almalinux/9"
       node.vm.hostname = name
@@ -16,12 +16,12 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
       end
 
       node.vm.synced_folder ".", "/vagrant", disabled: false
-      node.vm.provision "shell" do |s|
-        s.env = {
-          "MYSQL_SERVER_ID" => "#{i + 1}"
-        }
-        s.path = "mysql_startup.sh"
-      end
+      #node.vm.provision "shell" do |s|
+      #  s.env = {
+      #    "MYSQL_SERVER_ID" => "#{i + 1}"
+      #  }
+      #  s.path = "mysql_startup.sh"
+      #end
     end
   end
 end
