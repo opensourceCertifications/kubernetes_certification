@@ -18,6 +18,9 @@ echo "[INFO] Installing base packages and mysql"
 sudo yum update
 sudo yum upgrade -y
 sudo yum -y install wget curl gnupg2 nmap-ncat mysql-server
+sudo cp mysql.conf /etc/my.cnf.d/mysql.cnf
+sudo chown root:root /etc/my.cnf.d/mysql.cnf
+sudo systemctl start mysqld
 
 # --------------------
 # MYSQL SETUP
