@@ -7,8 +7,8 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
       node.vm.hostname = name
       node.vm.network "private_network", ip: "192.168.58.#{10 + i}"
 
-      node.vm.network "forwarded_port", guest: 27017, host: 27017 + i
-      node.vm.network "forwarded_port", guest: 3306, host: 3306 + i
+#      node.vm.network "forwarded_port", guest: 27017, host: 27017 + i
+#      node.vm.network "forwarded_port", guest: 3306, host: 3306 + i
 
       node.vm.provider "virtualbox" do |vb|
         vb.memory = 1024
@@ -16,7 +16,12 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
       end
 
       node.vm.synced_folder ".", "/vagrant", disabled: false
-      node.vm.provision "shell", path: "startup.sh"
+      node.vm.provision "shell" do |s|
+        s.env = {
+          "MYSQL_SERVER_ID" => "#{i + 1}"
+        }
+        s.path = "mysql_startup.sh"
+      end
     end
   end
 end
