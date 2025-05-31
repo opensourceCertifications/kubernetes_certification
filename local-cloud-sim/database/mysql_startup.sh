@@ -15,68 +15,77 @@ sudo setenforce 0 || true
 sudo sed -i 's/^SELINUX=.*/SELINUX=disabled/' /etc/selinux/config
 
 echo "[INFO] Installing base packages and mysql"
-sudo yum update
+sudo yum update -y
 sudo yum upgrade -y
 sudo yum -y install wget curl gnupg2 nmap-ncat mysql-server
-sudo cp mysql.conf /etc/my.cnf.d/mysql.cnf
+
+echo "[INFO] Setting MySQL server-id to $MYSQL_SERVER_ID"
+sudo cp /vagrant/mysql.conf /etc/my.cnf.d/mysql.cnf
+sudo sed -i "s/NUMBER/$MYSQL_SERVER_ID/g" /etc/my.cnf.d/mysql.cnf
 sudo chown root:root /etc/my.cnf.d/mysql.cnf
+
+echo "[INFO] Creating MySQL log directory"
+sudo mkdir -p /var/log/mysql
+sudo chown -R mysql:mysql /var/log/mysql
+
+echo "[INFO] Starting MySQL"
+sudo systemctl enable mysqld
 sudo systemctl start mysqld
 
-# --------------------
-# MYSQL SETUP
-# --------------------
-#echo "[INFO] Adding MySQL 8 community repo"
-#sudo yum -y install https://repo.mysql.com/mysql80-community-release-el9-1.noarch.rpm
+echo "[INFO] Sleep 5s, then check for port 3306..."
+sleep 5
+if nc -z 127.0.0.1 3306; then
+echo "[INFO] MySQL appears to be listening on port 3306."
+else
+echo "[WARN] MySQL did not seem to start correctly or is not listening on 127.0.0.1:3306 yet."
+fi
 
-#################################################################################
-#echo "[INFO] Cleaning cache and importing GPG key"
-#sudo yum clean all
-#sudo rm -f /etc/pki/rpm-gpg/*mysql*
-#sudo rpm --import https://repo.mysql.com/RPM-GPG-KEY-mysql-2023
-#
-#echo "[INFO] Installing MySQL server"
-#sudo yum -y install mysql-community-server
-#
-#echo "[INFO] Copying /vagrant/mysql.conf => /etc/my.cnf"
-##sudo cp /vagrant/mysql.conf /etc/my.cnf
-##sudo sed -i "s/NUMBER/$MYSQL_SERVER_ID/g" /etc/my.cnf
-#
-## Set server-id=2 for replication on second node
-##if hostname | grep -q database2; then
-##  echo "[INFO] Setting MySQL server-id=2"
-##  sudo sed -i 's/^server-id.*/server-id = 2/' /etc/my.cnf
-##fi
-#
-#echo "[INFO] Creating MySQL data directory"
-#sudo mkdir -p /var/lib/mysql
-#sudo chown -R mysql:mysql /var/lib/mysql
-#
-#echo "[INFO] Creating MySQL log directory"
-#sudo mkdir -p /var/log/mysql
-#sudo chown -R mysql:mysql /var/log/mysql
-#
-## echo "[INFO] Initializing MySQL data directory (Currently Commented Out)..."
-## if [ ! -d "/var/lib/mysql/mysql" ]; then
-##   sudo mysqld --initialize-insecure --user=mysql
-## fi
-#
-#echo "[INFO] Starting MySQL"
-##sudo systemctl enable mysqld
-##sudo systemctl start mysqld
-#
-##echo "[INFO] Sleep 5s, then check for port 3306..."
-##sleep 5
-##if nc -z 127.0.0.1 3306; then
-##  echo "[INFO] MySQL appears to be listening on port 3306."
-##else
-##  echo "[WARN] MySQL did not seem to start correctly or is not listening on 127.0.0.1:3306 yet."
-##fi
-#
-# #echo "[INFO] Setting root password and running setup.sql (Currently Commented Out)..."
-# #if hostname | grep -q database1; then
-# #    sudo mysql -u root -e "ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY 'supersecurepassword'; FLUSH PRIVILEGES;"
-# #    sudo mysql -u root -p"supersecurepassword" < /vagrant/setup.sql
-# #fi
-#
-#echo "[INFO] === MySQL Setup Finished ==="
-#################################################################################
+# Set up root password and create replication user on database1 (master)
+if hostname | grep -q database1; then
+echo "[INFO] Setting up database1 as MASTER"
+sudo mysql -e "ALTER USER 'root'@'localhost' IDENTIFIED BY 'supersecurepassword'; FLUSH PRIVILEGES;"
+sudo mysql -u root -p"supersecurepassword" < /vagrant/setup.sql
+
+# Get the binary log position for slave setup
+echo "[INFO] Getting master binary log position"
+sudo mysql -u root -p"supersecurepassword" -e "SHOW MASTER STATUS\G" > /vagrant/master_status.txt
+fi
+
+# Configure database2 as slave
+if hostname | grep -q database2; then
+echo "[INFO] Setting up database2 as SLAVE"
+sudo mysql -e "ALTER USER 'root'@'localhost' IDENTIFIED BY 'supersecurepassword'; FLUSH PRIVILEGES;"
+
+# Wait for master_status.txt to be created by database1
+echo "[INFO] Waiting for master status information..."
+sleep 10
+
+if [ -f /vagrant/master_status.txt ]; then
+# Extract master log file and position
+MASTER_LOG_FILE=$(grep "File:" /vagrant/master_status.txt | awk '{print $2}')
+MASTER_LOG_POS=$(grep "Position:" /vagrant/master_status.txt | awk '{print $2}')
+
+echo "[INFO] Configuring slave with Master_Log_File=$MASTER_LOG_FILE, Master_Log_Pos=$MASTER_LOG_POS"
+
+# Configure slave to replicate from master
+sudo mysql -u root -p"supersecurepassword" -e "
+STOP SLAVE;
+CHANGE MASTER TO
+  MASTER_HOST='192.168.58.10',
+  MASTER_USER='repl',
+  MASTER_PASSWORD='supersecurepassword',
+  MASTER_LOG_FILE='$MASTER_LOG_FILE',
+  MASTER_LOG_POS=$MASTER_LOG_POS;
+START SLAVE;
+"
+
+# Check slave status
+echo "[INFO] Checking slave status"
+sudo mysql -u root -p"supersecurepassword" -e "SHOW SLAVE STATUS\G"
+else
+echo "[ERROR] Master status information not available. Manual configuration required."
+fi
+fi
+
+echo "[INFO] === MySQL Setup Finished ==="
+
