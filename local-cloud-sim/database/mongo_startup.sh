@@ -50,21 +50,21 @@ sleep 5
 # Initiate replica set only on database1
 if hostname | grep -q database1; then
   echo "[INFO] Waiting for database2 to be available before initiating replica set..."
-  # Wait up to 60 seconds for database2 to come online
-  for i in {1..12}; do
-    if ping -c1 -W5 192.168.58.11 &>/dev/null; then
-      echo "[INFO] database2 is reachable, waiting 15 more seconds for MongoDB to start on database2..."
-      sleep 15
+  # Wait up to 120 seconds for database2 MongoDB to be ready
+  for i in {1..24}; do
+    if nc -z 192.168.58.11 27017 &>/dev/null; then
+      echo "[INFO] database2 MongoDB is ready, waiting 5 more seconds..."
+      sleep 5
       echo "[INFO] Initiating MongoDB replica set (setup.js)"
       mongosh --host localhost < /vagrant/setup.js
       break
     else
-      echo "[INFO] database2 not yet reachable, waiting (attempt $i of 12)..."
+      echo "[INFO] database2 MongoDB not ready, waiting (attempt $i of 24)..."
       sleep 5
     fi
     
-    if [ $i -eq 12 ]; then
-      echo "[WARN] Couldn't reach database2, skipping replica set initialization for now."
+    if [ $i -eq 24 ]; then
+      echo "[WARN] Couldn't reach database2 MongoDB after 120 seconds, skipping replica set initialization."
       echo "[WARN] You may need to manually run: mongosh --host localhost < /vagrant/setup.js"
     fi
   done
