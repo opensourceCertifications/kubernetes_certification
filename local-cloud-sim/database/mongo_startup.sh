@@ -42,11 +42,6 @@ sudo systemctl start mongod
 echo "[INFO] Sleep 5s, then check for port 27017..."
 sleep 5
 
-#until nc -z 127.0.0.1 27017; do
-#  echo "[INFO] Waiting for MongoDB to accept connections..."
-#  sleep 2
-#done
-
 # Initiate replica set only on database1
 if hostname | grep -q database1; then
   echo "[INFO] Waiting for database2 to be available before initiating replica set..."

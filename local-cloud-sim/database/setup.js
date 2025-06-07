@@ -5,9 +5,3 @@ rs.initiate({
     { _id: 1, host: "192.168.58.11:27017" },
   ]
 });
-/*use admin:
-db.createUser({
-  user: "admin",
-  pwd: "supersecurepassword",
-  roles: [ { role: "userAdminAnyDatabase", db: "admin" }, "readWriteAnyDatabase" ]
-})*/
