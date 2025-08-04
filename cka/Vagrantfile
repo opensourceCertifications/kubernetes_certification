@@ -1,0 +1,52 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+Vagrant.configure("2") do |config|
+  # Base VM config
+  config.vm.box = "ubuntu/focal64"
+  config.vm.box_check_update = false
+
+  # IP assignments
+  master_ip  = "192.168.57.10"
+  worker1_ip = "192.168.57.11"
+  worker2_ip = "192.168.57.12"
+
+  # VM settings template
+  def setup_node(node, hostname, ip)
+    node.vm.hostname = hostname
+    node.vm.network "private_network", ip: ip
+    node.vm.provider "virtualbox" do |vb|
+      vb.memory = 2048
+      vb.cpus = 2
+    end
+    node.vm.network "forwarded_port", guest: 22, host: ip.split('.').last.to_i + 2200, id: "ssh"
+
+    # Export IP to /etc/environment
+    node.vm.provision "shell", inline: <<-SHELL
+      echo "IP_MASTER=#{ip}" | tee -a /etc/environment
+      echo "IP_WORKER1=#{ip}" | tee -a /etc/environment
+      echo "IP_WORKER2=#{ip}" | tee -a /etc/environment
+    SHELL
+
+    # Run common setup script
+    node.vm.provision "shell", path: "./scripts/setup.sh"
+  end
+
+  # Master Node
+  config.vm.define "k8s-master" do |master|
+    setup_node(master, "k8s-master", master_ip)
+    master.vm.provision "shell", path: "./scripts/setup-master.sh"
+  end
+
+  # Worker Node 1
+  config.vm.define "k8s-worker1" do |worker1|
+    setup_node(worker1, "k8s-worker1", worker1_ip)
+#    worker1.vm.provision "shell", path: "/vagrant/scripts/setup-worker.sh"
+  end
+
+  # Worker Node 2
+  config.vm.define "k8s-worker2" do |worker2|
+    setup_node(worker2, "k8s-worker2", worker2_ip)
+#    worker2.vm.provision "shell", path: "/vagrant/scripts/setup-worker.sh"
+  end
+end
