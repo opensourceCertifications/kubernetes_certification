@@ -1,0 +1,98 @@
+---
+# Frontend Deployment (pinned to k8s-frontend)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend-app
+  namespace: frontend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: frontend-app
+  template:
+    metadata:
+      labels:
+        app: frontend-app
+    spec:
+      nodeSelector:
+        name: k8s-frontend
+      containers:
+      - name: nginx
+        image: nginx:1.20
+        ports:
+        - containerPort: 80
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+---
+# Backend Deployment (pinned to k8s-backend)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-api
+  namespace: backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: backend-api
+  template:
+    metadata:
+      labels:
+        app: backend-api
+    spec:
+      nodeSelector:
+        name: k8s-backend
+      containers:
+      - name: api
+        image: httpd:2.4
+        ports:
+        - containerPort: 80
+        resources:
+          requests:
+            cpu: 200m
+            memory: 256Mi
+          limits:
+            cpu: 1
+            memory: 1Gi
+---
+# Database Deployment (pinned to k8s-database)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: database-server
+  namespace: database
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: database-server
+  template:
+    metadata:
+      labels:
+        app: database-server
+    spec:
+      nodeSelector:
+        name: k8s-database
+      containers:
+      - name: mysql
+        image: mysql:8.0
+        env:
+        - name: MYSQL_ROOT_PASSWORD
+          value: "password123"
+        - name: MYSQL_DATABASE
+          value: "testdb"
+        ports:
+        - containerPort: 3306
+        resources:
+          requests:
+            cpu: 500m
+            memory: 1Gi
+          limits:
+            cpu: 2
+            memory: 4Gi
