@@ -1,0 +1,25 @@
+# Services frontend and backend ingress rules rely on
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-svc
+  namespace: frontend
+spec:
+  selector:
+    app: frontend-app
+  ports:
+  - port: 80
+    targetPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-svc
+  namespace: backend
+spec:
+  selector:
+    app: backend-api
+  ports:
+  - port: 80
+    targetPort: 8080  # Forward HTTP traffic to the Flask API container port

@@ -1,5 +1,5 @@
+# Simple nginx deployment exposed via ingress as public demo host.
 ---
-# Public Web Deployment
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -28,29 +28,12 @@ spec:
             cpu: 500m
             memory: 512Mi
 ---
-# NodePort Service for External Access
 apiVersion: v1
 kind: Service
 metadata:
   name: public-web-service
   namespace: default
 spec:
-  type: NodePort
-  selector:
-    app: public-web
-  ports:
-  - port: 80
-    targetPort: 80
-    nodePort: 30080
----
-# LoadBalancer Service (for external access simulation)
-apiVersion: v1
-kind: Service
-metadata:
-  name: public-web-lb
-  namespace: default
-spec:
-  type: LoadBalancer
   selector:
     app: public-web
   ports:

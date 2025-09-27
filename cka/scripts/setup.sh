@@ -39,7 +39,7 @@ apt-get install -y apt-transport-https ca-certificates curl gnupg lsb-release
 mkdir -p /etc/apt/keyrings
 
 curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.33/deb/Release.key \
-  | gpg --dearmor -o /etc/apt/keyrings/kubernetes-1-33-apt-keyring.gpg
+  | gpg --batch --yes --dearmor -o /etc/apt/keyrings/kubernetes-1-33-apt-keyring.gpg
 
 echo "deb [signed-by=/etc/apt/keyrings/kubernetes-1-33-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.33/deb/ /" \
   | tee /etc/apt/sources.list.d/kubernetes.list
