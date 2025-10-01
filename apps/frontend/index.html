@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Message Board</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 2rem auto; max-width: 640px; }
+    h1 { text-align: center; }
+    form { margin-bottom: 2rem; }
+    textarea { width: 100%; min-height: 100px; padding: 0.5rem; }
+    button { padding: 0.5rem 1rem; }
+    ul { list-style: none; padding: 0; }
+    li { padding: 0.5rem; border-bottom: 1px solid #ddd; }
+    small { color: #666; display: block; }
+    .error { color: #b00; margin-bottom: 1rem; }
+    .success { color: #060; margin-bottom: 1rem; }
+  </style>
+</head>
+<body>
+  <h1>Cluster Message Board</h1>
+  <p>Submit a note and the backend records it with the current cluster time. The latest ten entries show below.</p>
+  <div id="feedback"></div>
+  <form id="message-form">
+    <label for="message">Message</label>
+    <textarea id="message" name="message" required></textarea>
+    <div style="margin-top: 0.5rem;">
+      <button type="submit">Submit</button>
+      <button type="button" id="refresh">Refresh</button>
+    </div>
+  </form>
+
+  <h2>Latest Entries</h2>
+  <ul id="entries"></ul>
+
+  <script>
+    // REST endpoint exposed through ingress; nip.io resolves to the cluster node
+    const backendBase = 'http://backend.192.168.57.11.nip.io:30080';
+    const entriesList = document.getElementById('entries');
+    const feedback = document.getElementById('feedback');
+    const form = document.getElementById('message-form');
+    const messageField = document.getElementById('message');
+
+    const setFeedback = (msg, type) => {
+      feedback.textContent = msg;
+      feedback.className = type || '';
+    };
+
+    // Render the list of messages returned by the API
+    const renderEntries = (entries) => {
+      entriesList.innerHTML = '';
+      if (!entries.length) {
+        const li = document.createElement('li');
+        li.textContent = 'No entries yet.';
+        entriesList.appendChild(li);
+        return;
+      }
+      entries.forEach((entry) => {
+        const li = document.createElement('li');
+        const message = document.createElement('div');
+        message.textContent = entry.message;
+        const timestamp = document.createElement('small');
+        timestamp.textContent = `Submitted at ${entry.submitted_at}`;
+        li.appendChild(message);
+        li.appendChild(timestamp);
+        entriesList.appendChild(li);
+      });
+    };
+
+    // Fetch latest messages (used on page load and by the refresh button)
+    const loadEntries = async () => {
+      setFeedback('Loading latest entries…', '');
+      try {
+        const resp = await fetch(`${backendBase}/entries`);
+        const data = await resp.json();
+        renderEntries(Array.isArray(data) ? data : []);
+        setFeedback('Showing latest entries.', 'success');
+      } catch (err) {
+        console.error(err);
+        setFeedback('Failed to load entries.', 'error');
+      }
+    };
+
+    // Submit handler sends the new message to the backend and refreshes the list
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const message = messageField.value.trim();
+      if (!message) {
+        setFeedback('Message cannot be empty.', 'error');
+        return;
+      }
+      setFeedback('Submitting…', '');
+      try {
+        const resp = await fetch(`${backendBase}/entries`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message }),
+        });
+        if (!resp.ok) {
+          const errData = await resp.json();
+          throw new Error(errData.error || 'Failed to submit');
+        }
+        const data = await resp.json();
+        renderEntries(Array.isArray(data) ? data : []);
+        messageField.value = '';
+        setFeedback('Message saved.', 'success');
+      } catch (err) {
+        console.error(err);
+        setFeedback(err.message || 'Submission failed.', 'error');
+      }
+    });
+
+    document.getElementById('refresh').addEventListener('click', loadEntries);
+
+    loadEntries();
+  </script>
+</body>
+</html>

@@ -1,0 +1,70 @@
+---
+# Frontend Namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: frontend
+  labels:
+    tier: frontend
+    purpose: web-tier
+---
+# Backend Namespace  
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: backend
+  labels:
+    tier: backend
+    purpose: api-tier
+---
+# Database Namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: database
+  labels:
+    tier: database
+    purpose: data-tier
+---
+# Resource Quota for Frontend
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: frontend-quota
+  namespace: frontend
+spec:
+  hard:
+    requests.cpu: "2"
+    requests.memory: 2Gi
+    limits.cpu: "4"
+    limits.memory: 4Gi
+    pods: "20"
+---
+# Resource Quota for Backend
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: backend-quota
+  namespace: backend
+spec:
+  hard:
+    requests.cpu: "4"
+    requests.memory: 4Gi
+    limits.cpu: "8"
+    limits.memory: 8Gi
+    pods: "30"
+---
+# Resource Quota for Database
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: database-quota
+  namespace: database
+spec:
+  hard:
+    requests.cpu: "4"
+    requests.memory: 8Gi
+    limits.cpu: "8"
+    limits.memory: 16Gi
+    pods: "10"
+    persistentvolumeclaims: "20"

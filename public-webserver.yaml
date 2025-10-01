@@ -1,0 +1,41 @@
+# Simple nginx deployment exposed via ingress as public demo host.
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: public-web
+  namespace: default
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: public-web
+  template:
+    metadata:
+      labels:
+        app: public-web
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.20
+        ports:
+        - containerPort: 80
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: public-web-service
+  namespace: default
+spec:
+  selector:
+    app: public-web
+  ports:
+  - port: 80
+    targetPort: 80

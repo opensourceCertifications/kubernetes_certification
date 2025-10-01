@@ -1,0 +1,13 @@
+# ClusterIP service that exposes MySQL to other namespaces
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql
+  namespace: database
+spec:
+  selector:
+    app: database-server
+  ports:
+  - port: 3306
+    targetPort: 3306

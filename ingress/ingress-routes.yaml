@@ -1,0 +1,58 @@
+# Ingress hosts that route nip.io domains to the correct services
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: frontend-ing
+  namespace: frontend
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: frontend.192.168.57.11.nip.io
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: frontend-svc
+            port:
+              number: 80
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: backend-ing
+  namespace: backend
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: backend.192.168.57.11.nip.io
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: backend-svc
+            port:
+              number: 80
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: public-ing
+  namespace: default
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: public.192.168.57.11.nip.io
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: public-web-service
+            port:
+              number: 80

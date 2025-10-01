@@ -1,0 +1,166 @@
+# Deployments pinned to specific nodes for frontend, backend, and database.
+---
+# Frontend Deployment (serves HTML form via nginx, pinned to k8s-frontend)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend-app
+  namespace: frontend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: frontend-app
+  template:
+    metadata:
+      labels:
+        app: frontend-app
+    spec:
+      nodeSelector:
+        name: k8s-frontend
+      containers:
+      - name: nginx
+        image: nginx:1.25-alpine
+        ports:
+        - containerPort: 80
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        volumeMounts:
+        - name: frontend-content
+          mountPath: /usr/share/nginx/html/index.html
+          subPath: index.html
+      volumes:
+      - name: frontend-content
+        configMap:
+          name: frontend-content
+          items:
+          - key: index.html
+            path: index.html
+---
+# Backend Deployment (Flask API pods pinned to k8s-backend)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-api
+  namespace: backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: backend-api
+  template:
+    metadata:
+      labels:
+        app: backend-api
+    spec:
+      nodeSelector:
+        name: k8s-backend
+      containers:
+      - name: api
+        image: python:3.11-slim
+        ports:
+        - containerPort: 8080
+        resources:
+          requests:
+            cpu: 200m
+            memory: 256Mi
+          limits:
+            cpu: 1
+            memory: 1Gi
+        env:
+        - name: DB_HOST
+          value: mysql.database.svc.cluster.local
+        - name: DB_PORT
+          value: "3306"
+        - name: DB_NAME
+          value: testdb
+        - name: DB_TABLE
+          value: messages
+        - name: DB_MAX_RESULTS
+          value: "10"
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: backend-db-credentials
+              key: DB_USER
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: backend-db-credentials
+              key: DB_PASSWORD
+        - name: PYTHONUNBUFFERED
+          value: "1"
+        command: ["/bin/sh", "-c"]
+        # Install Python deps from the ConfigMap and launch the API (good enough for the lab).
+        args:
+        - >-
+          cd /app && pip install --no-cache-dir -r requirements.txt && gunicorn -w 2 -b 0.0.0.0:8080 app:app
+        startupProbe:
+          httpGet:
+            path: /readyz
+            port: 8080
+          failureThreshold: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+          initialDelaySeconds: 120
+          periodSeconds: 30
+        volumeMounts:
+        - name: backend-code
+          mountPath: /app
+      volumes:
+      - name: backend-code
+        configMap:
+          name: backend-app
+---
+# Database Deployment (single MySQL instance pinned to k8s-database)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: database-server
+  namespace: database
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: database-server
+  template:
+    metadata:
+      labels:
+        app: database-server
+    spec:
+      nodeSelector:
+        name: k8s-database
+      containers:
+      - name: mysql
+        image: mysql:8.0
+        env:
+        - name: MYSQL_ROOT_PASSWORD
+          value: "password123"
+        - name: MYSQL_DATABASE
+          value: "testdb"
+        - name: MYSQL_ROOT_HOST
+          value: "%"
+        # Allow the API pods from other nodes to authenticate as root (safe for the demo cluster).
+        ports:
+        - containerPort: 3306
+        resources:
+          requests:
+            cpu: 500m
+            memory: 1Gi
+          limits:
+            cpu: 2
+            memory: 4Gi
